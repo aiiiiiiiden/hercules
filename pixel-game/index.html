@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Catcher - 채집 게임</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas" width="800" height="600"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div id="score-box">
+        <span class="hud-label">SCORE</span>
+        <span id="score-value">0</span>
+      </div>
+      <div id="timer-box">
+        <span class="hud-label">TIME</span>
+        <span id="timer-value">60</span>
+      </div>
+
+      <div id="boat-timer-box" class="hidden">
+        <span class="boat-timer-icon">🚣</span>
+        <span id="boat-time-value">30s</span>
+      </div>
+
+      <div id="inventory">
+        <div class="inv-item">
+          <span class="inv-icon">🐟</span>
+          <span id="fish-count">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 안내 메시지 -->
+    <div id="hint-banner">⏱️ 60초! [SPACE] 보트/낚시 · ↑↓←→ 이동·도망 · M 도감</div>
+
+    <!-- 시작 모달 -->
+    <div id="start-modal">
+      <div class="start-content">
+        <div class="start-icon">🎣</div>
+        <h1>낚시 어드벤처</h1>
+        <p class="start-subtitle">60초 동안 큰 물고기를 잡아라!</p>
+
+        <div class="start-grid">
+          <div class="start-section">
+            <h3>🎮 조작</h3>
+            <p><kbd>↑↓←→</kbd> / <kbd>WASD</kbd> 이동</p>
+            <p><kbd>SPACE</kbd> 낚시 / 보트 / 액션</p>
+            <p><kbd>M</kbd> 도감 열기</p>
+            <p><kbd>↑↓←→</kbd> 낚시 중 = 도망</p>
+          </div>
+
+          <div class="start-section">
+            <h3>🎯 목표</h3>
+            <p>🪷 민물 호수 → 작은 물고기</p>
+            <p>🌊 바다 + 강한 캐스팅 → 큰 물고기</p>
+            <p>SPACE 연타로 물고기 끌어와</p>
+          </div>
+
+          <div class="start-section">
+            <h3>⚠️ 위험</h3>
+            <p>🦁 사자에게 잡히면 게임오버</p>
+            <p>🌊 배는 누적 30초만 탑승 가능</p>
+            <p>⏰ 60초 시간 제한</p>
+          </div>
+        </div>
+
+        <button id="start-btn">🎬 시작하기 (ENTER)</button>
+      </div>
+    </div>
+
+    <!-- 놓침 결과 모달 -->
+    <div id="miss-modal" class="hidden">
+      <div class="miss-content">
+        <div class="miss-banner">🐟 놓쳤다...</div>
+        <div class="miss-icon">💨</div>
+        <div id="miss-reason" class="miss-reason">물고기가 도망갔다</div>
+        <button id="miss-ok-btn">확인 (ENTER)</button>
+      </div>
+    </div>
+
+    <!-- 잡기 결과 모달 -->
+    <div id="catch-modal" class="hidden">
+      <div class="catch-content">
+        <div class="catch-banner">🎣 잡았다!</div>
+        <div id="catch-emoji" class="catch-big-emoji">🐟</div>
+        <div id="catch-name" class="catch-name">붕어</div>
+        <div id="catch-stars" class="catch-stars">★★★☆</div>
+        <div id="catch-score" class="catch-score">+12 점</div>
+        <div id="catch-count" class="catch-count">총 1마리째</div>
+        <button id="catch-ok-btn">확인 (ENTER)</button>
+      </div>
+    </div>
+
+    <!-- 게임오버 모달 -->
+    <div id="gameover-modal" class="hidden">
+      <div class="gameover-content">
+        <h1 id="gameover-title">⏰ TIME UP!</h1>
+        <div class="result-score">
+          <span class="hud-label">최종 점수</span>
+          <div id="final-score">0</div>
+        </div>
+        <div class="result-stats">
+          <div>🐟 잡은 물고기 <strong id="final-fish">0</strong>마리</div>
+        </div>
+        <div id="final-rank"></div>
+        <button id="restart-btn">🔁 다시 도전하기</button>
+      </div>
+    </div>
+
+    <!-- 모바일 가상 컨트롤 (터치 기기에서만 표시) -->
+    <div id="mobile-controls" class="hidden">
+      <div id="dpad">
+        <button class="dpad-btn dpad-up"    data-key="ArrowUp">▲</button>
+        <button class="dpad-btn dpad-left"  data-key="ArrowLeft">◀</button>
+        <button class="dpad-btn dpad-right" data-key="ArrowRight">▶</button>
+        <button class="dpad-btn dpad-down"  data-key="ArrowDown">▼</button>
+      </div>
+      <button id="action-btn" data-key=" ">🎣<br><small>SPACE</small></button>
+    </div>
+
+    <!-- 도감 모달 -->
+    <div id="dex-modal" class="hidden">
+      <div class="dex-content">
+        <h2>채집 도감</h2>
+        <div id="dex-grid"></div>
+        <button id="dex-close">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 게임 모듈 (순서 중요) -->
+  <script src="js/config.js"></script>
+  <script src="js/assets.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/pathfinding.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/boat.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/fishing.js"></script>
+  <script src="js/lion.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
