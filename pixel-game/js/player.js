@@ -96,7 +96,7 @@ const Player = {
     return false;
   },
 
-  update() {
+  update(dt) {
     // 낚시 중일 때 처리
     if (Fishing.state !== 'idle') {
       // B안: 방향키 또는 탭 이동 명령이 오면 즉시 낚시 취소하고 자유 이동 (도망)
@@ -188,9 +188,10 @@ const Player = {
       Boat.facing = dx >= 0 ? 1 : -1;
     }
 
-    // 충돌 검사 후 이동 (X, Y 분리하여 슬라이딩 가능)
-    const nx = this.x + dx * this.speed;
-    const ny = this.y + dy * this.speed;
+    // 충돌 검사 후 이동 (X, Y 분리하여 슬라이딩 가능). speed는 px/sec 단위.
+    const moveDist = this.speed * dt;
+    const nx = this.x + dx * moveDist;
+    const ny = this.y + dy * moveDist;
     const r = this.size / 2 - 4;
 
     if (!this._collidesAt(nx, this.y, r)) this.x = nx;
@@ -200,9 +201,9 @@ const Player = {
     this.x = Math.max(r, Math.min(World.width - r, this.x));
     this.y = Math.max(r, Math.min(World.height - r, this.y));
 
-    // 걷기 애니메이션
+    // 걷기 애니메이션 (60fps에서 0.15/frame ≈ 9/sec — frame-rate 독립화)
     if (this.walking) {
-      this.walkFrame += 0.15;
+      this.walkFrame += 9 * dt;
     } else {
       this.walkFrame = 0;
     }

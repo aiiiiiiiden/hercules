@@ -77,7 +77,10 @@ const Game = {
   loop(timestamp) {
     if (!this.running) return;
 
-    const dt = (timestamp - this.lastTime) / 1000 || 0;
+    // dt를 1/30s(33ms)로 클램프 — alt-tab 등으로 dt가 폭주하면 충돌이 코너 검사를 건너뛰어
+    // 벽을 뚫는 텔레포트가 발생할 수 있음. 30fps 미만에서도 게임 로직은 그 속도로 진행.
+    const rawDt = (timestamp - this.lastTime) / 1000 || 0;
+    const dt = Math.min(rawDt, 1 / 30);
     this.lastTime = timestamp;
 
     this.update(dt);
@@ -99,10 +102,10 @@ const Game = {
         this.timeLeft = 0;
         this._endRound('time');
       } else {
-        Player.update();
+        Player.update(dt);
         Fishing.update();
         Items.update();
-        Lion.update();           // 사자 추적
+        Lion.update(dt);         // 사자 추적
 
         // 배 탑승 시간 누적
         if (Player.inBoat) {

@@ -13,7 +13,7 @@ const CONFIG = {
   MAP_ROWS: 22,    // 맵 세로 타일 수 (880px)
 
   // 플레이어
-  PLAYER_SPEED: 3,              // px/frame
+  PLAYER_SPEED: 200,            // px/sec (= 5 타일/sec @ TILE_SIZE 40)
   PLAYER_INTERACT_RANGE: 50,    // 채집 가능 거리(px)
 
   // 아이템 스폰

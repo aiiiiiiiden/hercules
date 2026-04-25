@@ -15,7 +15,7 @@ const Lion = {
   active: false,
 
   // 튜닝
-  SPEED: 0.6,             // 사자 이동 속도 (0.75 → 0.6 = 기존의 80%. 플레이어 = 3.0)
+  SPEED: 80,              // 사자 이동 속도 (px/sec = 2 타일/sec @ TILE_SIZE 40. 플레이어 200)
   CATCH_DIST: 22,         // 이 거리 안 = 게임오버
   WARN_DIST: 160,         // 이 거리 안 = 화면 빨간 비네트
   PATH_RECALC_MS: 350,    // 경로 재계산 주기
@@ -62,7 +62,7 @@ const Lion = {
     return Math.hypot(this.x - Player.x, this.y - Player.y);
   },
 
-  update() {
+  update(dt) {
     if (!this.active) return;
 
     // 잡힘 판정 (직선거리)
@@ -81,7 +81,8 @@ const Lion = {
       this.lastPathTime = now;
     }
 
-    const speed = this.currentSpeed();
+    // speed는 px/sec. dt(초)를 곱해 프레임 이동량 산출.
+    const moveDist = this.currentSpeed() * dt;
 
     // 경로 따라가기
     if (this.path && this.path.length > 0) {
@@ -101,8 +102,8 @@ const Lion = {
       } else {
         const ux = tdx / td;
         const uy = tdy / td;
-        const nx = this.x + ux * speed;
-        const ny = this.y + uy * speed;
+        const nx = this.x + ux * moveDist;
+        const ny = this.y + uy * moveDist;
         const r = this.size / 2 - 8;
         if (!this._collidesAt(nx, this.y, r)) this.x = nx;
         if (!this._collidesAt(this.x, ny, r)) this.y = ny;
@@ -111,12 +112,12 @@ const Lion = {
         this._updateAxis(tdx, tdy);
       }
     } else {
-      // 경로 없음 → 직선 시도
+      // 경로 없음 → 직선 시도 (절반 속도)
       if (dp > 0.01) {
         const ux = dxp / dp;
         const uy = dyp / dp;
-        const nx = this.x + ux * speed * 0.5;
-        const ny = this.y + uy * speed * 0.5;
+        const nx = this.x + ux * moveDist * 0.5;
+        const ny = this.y + uy * moveDist * 0.5;
         const r = this.size / 2 - 8;
         if (!this._collidesAt(nx, this.y, r)) this.x = nx;
         if (!this._collidesAt(this.x, ny, r)) this.y = ny;
@@ -124,7 +125,8 @@ const Lion = {
       }
     }
 
-    this.walkFrame += 0.18;
+    // 걷기 카운터 (60fps에서 0.18/frame ≈ 10.8/sec. 현재 렌더는 Date.now() 기반이라 시각 효과는 동일)
+    this.walkFrame += 10.8 * dt;
   },
 
   // 이동 벡터 → 이동축(horizontal/vertical) + facing
