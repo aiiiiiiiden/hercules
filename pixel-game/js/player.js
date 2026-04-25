@@ -69,6 +69,7 @@ const Player = {
       [this.size, this.size], [-this.size, this.size],
       [this.size, -this.size], [-this.size, -this.size],
     ];
+    const ts = CONFIG.TILE_SIZE;
     for (const [dx, dy] of tries) {
       const nx = this.x + dx;
       const ny = this.y + dy;
@@ -78,8 +79,13 @@ const Player = {
         Boat.x = this.x;
         Boat.y = this.y;
         Boat.active = false;
-        this.x = nx;
-        this.y = ny;
+        // 플레이어를 해당 land 타일 정중앙으로 정렬.
+        // size(28)가 TILE_SIZE(40)보다 작아 nx,ny 그대로 두면 충돌 박스(반경 10)의
+        // 한쪽 코너가 보트가 있던 물 타일에 걸려 좌/상/하 이동이 차단되는 끼임 발생.
+        const tc = Math.floor(nx / ts);
+        const tr = Math.floor(ny / ts);
+        this.x = tc * ts + ts / 2;
+        this.y = tr * ts + ts / 2;
         this.inBoat = false;
         Input.clearTapPath();  // 보트 경로 → 도보 모드로 전환되면 무효
         UI.showFloatingText('하선!', this.x - Camera.x, this.y - Camera.y - 30, '#fff');
