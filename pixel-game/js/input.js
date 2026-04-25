@@ -13,6 +13,7 @@ const Input = {
   keys: {},                 // 현재 눌려 있는 키 상태 (held)
   _pressBuffer: new Set(),  // 새로 눌린 키들 (consume 대기 중)
   tapPath: null,            // [{c, r}, ...] - 탭으로 설정된 이동 목표 경로
+  tapAction: null,          // 'board' 등 - 경로 종료 후 자동 실행할 액션
 
   init() {
     window.addEventListener('keydown', (e) => {
@@ -66,7 +67,6 @@ const Input = {
     canvas.addEventListener('click', (e) => {
       // 캔버스 자체에 대한 탭만 처리 (HUD/액션버튼은 별도 핸들러)
       if (e.target !== canvas) return;
-      // 게임이 진행 중이 아닌 경우 무시 (모달/게임오버)
       if (typeof Game !== 'undefined' && Game.state !== 'playing') return;
       if (typeof Pathfinding === 'undefined' || typeof Camera === 'undefined') return;
 
@@ -81,12 +81,88 @@ const Input = {
       const sc = Math.floor(Player.x / ts);
       const sr = Math.floor(Player.y / ts);
 
-      // 도보 → 'land', 보트 → 'water' (바다에서만 항행)
-      const mode = Player.inBoat ? 'water' : 'land';
-      const path = Pathfinding.find(sc, sr, tc, tr, mode);
-      if (path && path.length > 1) {
-        path.shift();  // 현재 타일 제거 — 다음 칸부터 추적
-        this.tapPath = path;
+      // 새 탭 → 이전 액션 의도 무효화
+      this.tapAction = null;
+
+      // 경계 밖 클릭 → X
+      if (tc < 0 || tc >= World.cols || tr < 0 || tr >= World.rows) {
+        ClickMarker.show(tc, tr, 'fail');
+        return;
+      }
+
+      const tile = World.map[tr][tc];
+
+      if (Player.inBoat) {
+        // 보트 모드: 바다 OR (바다 인접) 타일만 클릭 가능
+        const isWater = tile === TILE.WATER;
+        const adjWater = !isWater && World.isAdjacentToWater(tc, tr);
+        if (!isWater && !adjWater) {
+          ClickMarker.show(tc, tr, 'fail');
+          return;
+        }
+
+        if (isWater) {
+          // 바다 항행
+          const path = Pathfinding.find(sc, sr, tc, tr, 'water');
+          if (path && path.length > 1) {
+            path.shift();
+            this.tapPath = path;
+            ClickMarker.show(tc, tr, 'ok');
+          } else {
+            ClickMarker.show(tc, tr, 'fail');
+          }
+        } else {
+          // 해변(=바다 인접 land) → 클릭한 타일에 인접한 물 타일까지 항행 후 자동 하선
+          const waterTarget = World.adjacentWaterTile(tc, tr);
+          if (!waterTarget) {
+            ClickMarker.show(tc, tr, 'fail');
+            return;
+          }
+          const path = Pathfinding.find(sc, sr, waterTarget.c, waterTarget.r, 'water');
+          if (path && path.length > 0) {
+            if (path.length > 1) path.shift();
+            this.tapPath = path;
+            this.tapAction = 'disembark';
+            ClickMarker.show(tc, tr, 'ok');
+          } else {
+            ClickMarker.show(tc, tr, 'fail');
+          }
+        }
+      } else {
+        // 도보 모드: 통과 가능 land OR 보트가 위치한 바다 타일만 클릭 가능
+        const bc = Math.floor(Boat.x / ts);
+        const br = Math.floor(Boat.y / ts);
+        const isBoatTile = (tc === bc && tr === br && !Boat.active);
+        const isWalkableLand =
+          tile === TILE.GRASS || tile === TILE.SAND || tile === TILE.PATH;
+        if (!isWalkableLand && !isBoatTile) {
+          ClickMarker.show(tc, tr, 'fail');
+          return;
+        }
+
+        if (isBoatTile) {
+          // 보트 클릭 → 보트 인접 land로 이동 후 자동 탑승
+          // (보트 타일은 land 모드 기준 unwalkable → _nearestWalkable이 인접 land로 리다이렉트)
+          const path = Pathfinding.find(sc, sr, bc, br, 'land');
+          if (path && path.length > 0) {
+            if (path.length > 1) path.shift();
+            this.tapPath = path;
+            this.tapAction = 'board';
+            ClickMarker.show(tc, tr, 'ok');
+          } else {
+            ClickMarker.show(tc, tr, 'fail');
+          }
+        } else {
+          // 일반 도보
+          const path = Pathfinding.find(sc, sr, tc, tr, 'land');
+          if (path && path.length > 1) {
+            path.shift();
+            this.tapPath = path;
+            ClickMarker.show(tc, tr, 'ok');
+          } else {
+            ClickMarker.show(tc, tr, 'fail');
+          }
+        }
       }
     });
   },
@@ -116,9 +192,10 @@ const Input = {
     actionBtn.addEventListener('contextmenu', (e) => e.preventDefault());
   },
 
-  // 탭 경로 비우기 (키보드 이동 시작/낚시 도주 등에서 호출)
+  // 탭 경로 비우기 (키보드 이동 시작/낚시 도주/모드 전환 등에서 호출)
   clearTapPath() {
     this.tapPath = null;
+    this.tapAction = null;
   },
 
   // 모든 키 상태 초기화 (포커스 상실/모달 닫힘 등에서 호출)
@@ -126,6 +203,7 @@ const Input = {
     this.keys = {};
     this._pressBuffer.clear();
     this.tapPath = null;
+    this.tapAction = null;
   },
 
   // 키가 현재 눌려 있는가

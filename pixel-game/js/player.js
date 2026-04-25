@@ -152,7 +152,19 @@ const Player = {
         const REACH = 4;  // 픽셀 단위 도착 판정
         if (td < REACH) {
           Input.tapPath.shift();
-          if (Input.tapPath.length === 0) Input.tapPath = null;
+          if (Input.tapPath.length === 0) {
+            Input.tapPath = null;
+            // 경로 도착 후 자동 액션
+            //  - 'board'     : 배 인접 land 도착 → 탑승
+            //  - 'disembark' : 클릭한 해변에 인접한 물 도착 → 하선
+            const action = Input.tapAction;
+            Input.tapAction = null;
+            if (action === 'board' && !this.inBoat) {
+              this._board();
+            } else if (action === 'disembark' && this.inBoat) {
+              this._tryDisembark();
+            }
+          }
         } else {
           dx = tdx / td;  // 단위 벡터
           dy = tdy / td;

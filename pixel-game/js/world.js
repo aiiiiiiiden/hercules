@@ -264,6 +264,28 @@ const World = {
     return t === TILE.WATER || t === TILE.TREE || t === TILE.FENCE || t === null;
   },
 
+  // 4방향 인접 타일 중 하나라도 물이면 true (해변/물가 판정)
+  isAdjacentToWater(c, r) {
+    const offs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (const [dc, dr] of offs) {
+      const nc = c + dc, nr = r + dr;
+      if (nc < 0 || nc >= this.cols || nr < 0 || nr >= this.rows) continue;
+      if (this.map[nr][nc] === TILE.WATER) return true;
+    }
+    return false;
+  },
+
+  // 4방향 인접 물 타일 중 하나 반환 (없으면 null)
+  adjacentWaterTile(c, r) {
+    const offs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (const [dc, dr] of offs) {
+      const nc = c + dc, nr = r + dr;
+      if (nc < 0 || nc >= this.cols || nr < 0 || nr >= this.rows) continue;
+      if (this.map[nr][nc] === TILE.WATER) return { c: nc, r: nr };
+    }
+    return null;
+  },
+
   // ===== 렌더링 =====
   // 2-pass 방식:
   //  1) 베이스 (잔디/모래/물/길) - 모든 타일을 깔아둠. 나무·돌 자리는 잔디로 깔림

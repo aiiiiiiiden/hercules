@@ -146,6 +146,7 @@ const Game = {
     Fishing.render(ctx, Camera);
     Lion.render(ctx, Camera);     // 사자 (플레이어보다 뒤)
     Player.render(ctx, Camera);
+    ClickMarker.render(ctx, Camera);  // 클릭 피드백 (O/X)
 
     if (this.state === 'playing') {
       Lion.renderVignette(ctx);   // 위험 시 화면 빨간 비네트
