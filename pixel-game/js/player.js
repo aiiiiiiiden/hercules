@@ -25,6 +25,7 @@ const Player = {
 
   init() {
     this.inBoat = false;
+    if (typeof Input !== 'undefined') Input.clearTapPath();
     // 잔디 위 안전한 시작 위치 찾기
     const ts = CONFIG.TILE_SIZE;
     for (let r = Math.floor(World.rows/2); r < World.rows; r++) {
@@ -52,6 +53,7 @@ const Player = {
     this.x = Boat.x;
     this.y = Boat.y;
     Boat.active = true;
+    Input.clearTapPath();  // 도보 경로 → 보트 모드로 전환되면 무효
     const remain = Math.ceil(Boat.remainingTime());
     UI.showFloatingText(
       `🚣 출항! (${remain}초 남음)`,
@@ -79,6 +81,7 @@ const Player = {
         this.x = nx;
         this.y = ny;
         this.inBoat = false;
+        Input.clearTapPath();  // 보트 경로 → 도보 모드로 전환되면 무효
         UI.showFloatingText('하선!', this.x - Camera.x, this.y - Camera.y - 30, '#fff');
         return true;
       }
@@ -90,12 +93,13 @@ const Player = {
   update() {
     // 낚시 중일 때 처리
     if (Fishing.state !== 'idle') {
-      // B안: 방향키를 누르면 즉시 낚시 취소하고 자유 이동 (도망)
+      // B안: 방향키 또는 탭 이동 명령이 오면 즉시 낚시 취소하고 자유 이동 (도망)
       const tryingToMove =
         Input.isDown('ArrowUp')   || Input.isDown('w') ||
         Input.isDown('ArrowDown') || Input.isDown('s') ||
         Input.isDown('ArrowLeft') || Input.isDown('a') ||
-        Input.isDown('ArrowRight')|| Input.isDown('d');
+        Input.isDown('ArrowRight')|| Input.isDown('d') ||
+        !!Input.tapPath;
 
       if (tryingToMove) {
         // 입질/릴링 중에 도망치면 물고기 놓침
@@ -120,15 +124,43 @@ const Player = {
     }
 
     let dx = 0, dy = 0;
-    if (Input.isDown('ArrowUp')   || Input.isDown('w')) { dy -= 1; this.dir = 'up'; }
-    if (Input.isDown('ArrowDown') || Input.isDown('s')) { dy += 1; this.dir = 'down'; }
-    if (Input.isDown('ArrowLeft') || Input.isDown('a')) { dx -= 1; this.dir = 'left'; }
-    if (Input.isDown('ArrowRight')|| Input.isDown('d')) { dx += 1; this.dir = 'right'; }
+    let kbActive = false;
+    if (Input.isDown('ArrowUp')   || Input.isDown('w')) { dy -= 1; this.dir = 'up';    kbActive = true; }
+    if (Input.isDown('ArrowDown') || Input.isDown('s')) { dy += 1; this.dir = 'down';  kbActive = true; }
+    if (Input.isDown('ArrowLeft') || Input.isDown('a')) { dx -= 1; this.dir = 'left';  kbActive = true; }
+    if (Input.isDown('ArrowRight')|| Input.isDown('d')) { dx += 1; this.dir = 'right'; kbActive = true; }
 
+    // 키보드 입력이 들어오면 탭 경로는 즉시 무효화 (사용자 의도 우선)
+    if (kbActive) {
+      Input.clearTapPath();
+    } else if (Input.tapPath) {
+      // 키 입력 없음 + 탭 경로 보유 → 다음 웨이포인트 추적 (도보·보트 공용)
+      const wp = Input.tapPath[0];
+      if (wp) {
+        const ts = CONFIG.TILE_SIZE;
+        const tx = wp.c * ts + ts / 2;
+        const ty = wp.r * ts + ts / 2;
+        const tdx = tx - this.x;
+        const tdy = ty - this.y;
+        const td = Math.hypot(tdx, tdy);
+        const REACH = 4;  // 픽셀 단위 도착 판정
+        if (td < REACH) {
+          Input.tapPath.shift();
+          if (Input.tapPath.length === 0) Input.tapPath = null;
+        } else {
+          dx = tdx / td;  // 단위 벡터
+          dy = tdy / td;
+          // 더 큰 성분으로 facing 결정 (스프라이트/낚시 방향)
+          if (Math.abs(dx) > Math.abs(dy)) this.dir = dx >= 0 ? 'right' : 'left';
+          else                              this.dir = dy >= 0 ? 'down'  : 'up';
+        }
+      }
+    }
+
+    // 대각선 정규화 (키보드 ±1, ±1 입력 정규화. 탭은 이미 단위 벡터라 무영향.)
     if (dx !== 0 && dy !== 0) {
-      // 대각선 정규화
-      dx *= 0.707;
-      dy *= 0.707;
+      const m = Math.hypot(dx, dy);
+      if (m > 0) { dx /= m; dy /= m; }
     }
 
     this.walking = (dx !== 0 || dy !== 0);

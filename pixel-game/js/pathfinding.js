@@ -2,10 +2,13 @@
  * A* 길찾기 (8방향, 코너 컷 방지)
  *
  * 사용:
- *   const path = Pathfinding.find(startCol, startRow, endCol, endRow);
+ *   const path = Pathfinding.find(startCol, startRow, endCol, endRow);            // 도보 (기본)
+ *   const path = Pathfinding.find(startCol, startRow, endCol, endRow, 'water');   // 보트 (바다 전용)
  *   path = [{c, r}, ...]  또는  null (도달 불가)
  *
- * 그리드는 World.map 을 그대로 사용. 물(WATER)/나무(TREE)는 장애물.
+ * mode:
+ *   'land'  (기본) — 물/나무/울타리 차단. 도보·사자 추적용.
+ *   'water'         — 물 타일만 통과. 보트 항행용.
  */
 const Pathfinding = {
   // 휴리스틱 (octile distance) - 8방향 이동에 적합
@@ -15,30 +18,31 @@ const Pathfinding = {
     return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
   },
 
-  _walkable(c, r) {
+  _walkable(c, r, mode) {
     if (c < 0 || c >= World.cols || r < 0 || r >= World.rows) return false;
     const t = World.map[r][c];
+    if (mode === 'water') return t === TILE.WATER;
     return t !== TILE.WATER && t !== TILE.TREE && t !== TILE.FENCE;
   },
 
   // 도달 불가능한 타일이면 가장 가까운 통과 가능 타일 찾기
-  _nearestWalkable(c, r) {
-    if (this._walkable(c, r)) return { c, r };
+  _nearestWalkable(c, r, mode) {
+    if (this._walkable(c, r, mode)) return { c, r };
     for (let radius = 1; radius <= 6; radius++) {
       for (let dr = -radius; dr <= radius; dr++) {
         for (let dc = -radius; dc <= radius; dc++) {
           if (Math.abs(dr) !== radius && Math.abs(dc) !== radius) continue;
           const nc = c + dc, nr = r + dr;
-          if (this._walkable(nc, nr)) return { c: nc, r: nr };
+          if (this._walkable(nc, nr, mode)) return { c: nc, r: nr };
         }
       }
     }
     return null;
   },
 
-  find(startC, startR, endC, endR) {
-    const start = this._nearestWalkable(startC, startR);
-    const end = this._nearestWalkable(endC, endR);
+  find(startC, startR, endC, endR, mode = 'land') {
+    const start = this._nearestWalkable(startC, startR, mode);
+    const end = this._nearestWalkable(endC, endR, mode);
     if (!start || !end) return null;
     if (start.c === end.c && start.r === end.r) return [{ c: start.c, r: start.r }];
 
@@ -93,12 +97,12 @@ const Pathfinding = {
       for (const [dc, dr, cost] of dirs) {
         const nc = curr.c + dc;
         const nr = curr.r + dr;
-        if (!this._walkable(nc, nr)) continue;
+        if (!this._walkable(nc, nr, mode)) continue;
 
         // 코너 컷 방지: 대각선 이동 시 양쪽 직교 타일이 모두 통과 가능해야 함
         if (dc !== 0 && dr !== 0) {
-          if (!this._walkable(curr.c + dc, curr.r)) continue;
-          if (!this._walkable(curr.c, curr.r + dr)) continue;
+          if (!this._walkable(curr.c + dc, curr.r, mode)) continue;
+          if (!this._walkable(curr.c, curr.r + dr, mode)) continue;
         }
 
         const nk = key(nc, nr);

@@ -7,10 +7,12 @@
  *  3. 윈도우 blur / visibilitychange → keys 초기화: alt-tab 했다가 돌아왔을 때 키가 끼이는 현상 방지
  *  4. 채팅 포커스 토글 시 키 / 버퍼 모두 초기화
  *  5. clear() 단일 진입점으로 외부 모듈도 안전하게 입력 상태 리셋 가능
+ *  6. 캔버스 탭/클릭 → A* 길찾기로 이동 (tapPath). 키보드 입력 발생 시 자동 무효화.
  */
 const Input = {
   keys: {},                 // 현재 눌려 있는 키 상태 (held)
   _pressBuffer: new Set(),  // 새로 눌린 키들 (consume 대기 중)
+  tapPath: null,            // [{c, r}, ...] - 탭으로 설정된 이동 목표 경로
 
   init() {
     window.addEventListener('keydown', (e) => {
@@ -44,17 +46,53 @@ const Input = {
       if (document.hidden) this.clear();
     });
 
-    // 터치 기기 → 가상 컨트롤 활성화
+    // 캔버스 탭/클릭 → 길찾기 이동 (데스크톱 마우스 + 모바일 터치 공통)
+    this._setupTapToMove();
+
+    // 터치 기기 → 액션 버튼 노출
     const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
     if (isTouch) {
       const mc = document.getElementById('mobile-controls');
       if (mc) mc.classList.remove('hidden');
-      this._setupVirtualControls();
+      this._setupActionButton();
     }
   },
 
-  // 가상 컨트롤(D-pad + 액션 버튼) 입력 → 키보드와 동일한 keys/_pressBuffer 채널로 주입
-  _setupVirtualControls() {
+  // 캔버스 탭 → 해당 타일까지 A* 경로를 tapPath에 저장. Player.update가 소비.
+  _setupTapToMove() {
+    const canvas = document.getElementById('game-canvas');
+    if (!canvas) return;
+
+    canvas.addEventListener('click', (e) => {
+      // 캔버스 자체에 대한 탭만 처리 (HUD/액션버튼은 별도 핸들러)
+      if (e.target !== canvas) return;
+      // 게임이 진행 중이 아닌 경우 무시 (모달/게임오버)
+      if (typeof Game !== 'undefined' && Game.state !== 'playing') return;
+      if (typeof Pathfinding === 'undefined' || typeof Camera === 'undefined') return;
+
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const wx = sx + Camera.x;
+      const wy = sy + Camera.y;
+      const ts = CONFIG.TILE_SIZE;
+      const tc = Math.floor(wx / ts);
+      const tr = Math.floor(wy / ts);
+      const sc = Math.floor(Player.x / ts);
+      const sr = Math.floor(Player.y / ts);
+
+      // 도보 → 'land', 보트 → 'water' (바다에서만 항행)
+      const mode = Player.inBoat ? 'water' : 'land';
+      const path = Pathfinding.find(sc, sr, tc, tr, mode);
+      if (path && path.length > 1) {
+        path.shift();  // 현재 타일 제거 — 다음 칸부터 추적
+        this.tapPath = path;
+      }
+    });
+  },
+
+  // 액션 버튼(SPACE) — 모바일 전용
+  _setupActionButton() {
     const press = (key) => {
       const k = key.toLowerCase();
       if (!this.keys[k]) this._pressBuffer.add(k);
@@ -64,37 +102,30 @@ const Input = {
       this.keys[key.toLowerCase()] = false;
     };
 
-    const bind = (el) => {
-      const key = el.dataset.key;
-      if (!key) return;
-      const onDown = (e) => {
-        e.preventDefault();
-        el.classList.add('active');
-        press(key);
-      };
-      const onUp = (e) => {
-        e.preventDefault();
-        el.classList.remove('active');
-        release(key);
-      };
-      el.addEventListener('touchstart', onDown, { passive: false });
-      el.addEventListener('touchend',   onUp,   { passive: false });
-      el.addEventListener('touchcancel', onUp,  { passive: false });
-      el.addEventListener('mousedown',  onDown);
-      el.addEventListener('mouseup',    onUp);
-      el.addEventListener('mouseleave', onUp);
-      el.addEventListener('contextmenu', (e) => e.preventDefault());
-    };
-
-    document.querySelectorAll('.dpad-btn').forEach(bind);
     const actionBtn = document.getElementById('action-btn');
-    if (actionBtn) bind(actionBtn);
+    if (!actionBtn) return;
+    const key = actionBtn.dataset.key || ' ';
+    const onDown = (e) => { e.preventDefault(); actionBtn.classList.add('active'); press(key); };
+    const onUp   = (e) => { e.preventDefault(); actionBtn.classList.remove('active'); release(key); };
+    actionBtn.addEventListener('touchstart', onDown, { passive: false });
+    actionBtn.addEventListener('touchend',   onUp,   { passive: false });
+    actionBtn.addEventListener('touchcancel', onUp,  { passive: false });
+    actionBtn.addEventListener('mousedown',  onDown);
+    actionBtn.addEventListener('mouseup',    onUp);
+    actionBtn.addEventListener('mouseleave', onUp);
+    actionBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+  },
+
+  // 탭 경로 비우기 (키보드 이동 시작/낚시 도주 등에서 호출)
+  clearTapPath() {
+    this.tapPath = null;
   },
 
   // 모든 키 상태 초기화 (포커스 상실/모달 닫힘 등에서 호출)
   clear() {
     this.keys = {};
     this._pressBuffer.clear();
+    this.tapPath = null;
   },
 
   // 키가 현재 눌려 있는가
