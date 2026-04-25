@@ -53,7 +53,7 @@ const Input = {
     }
   },
 
-  // 가상 컨트롤(D-pad + 액션 버튼) 입력 → 키보드와 동일한 keys/_pressBuffer 채널로 주입
+  // 가상 컨트롤(드래그 조이스틱 + 액션 버튼) → keys/_pressBuffer 채널 주입
   _setupVirtualControls() {
     const press = (key) => {
       const k = key.toLowerCase();
@@ -64,31 +64,128 @@ const Input = {
       this.keys[key.toLowerCase()] = false;
     };
 
-    const bind = (el) => {
-      const key = el.dataset.key;
-      if (!key) return;
-      const onDown = (e) => {
-        e.preventDefault();
-        el.classList.add('active');
-        press(key);
-      };
-      const onUp = (e) => {
-        e.preventDefault();
-        el.classList.remove('active');
-        release(key);
-      };
-      el.addEventListener('touchstart', onDown, { passive: false });
-      el.addEventListener('touchend',   onUp,   { passive: false });
-      el.addEventListener('touchcancel', onUp,  { passive: false });
-      el.addEventListener('mousedown',  onDown);
-      el.addEventListener('mouseup',    onUp);
-      el.addEventListener('mouseleave', onUp);
-      el.addEventListener('contextmenu', (e) => e.preventDefault());
+    // ===== 액션 버튼 (탭) =====
+    const actionBtn = document.getElementById('action-btn');
+    if (actionBtn) {
+      const key = actionBtn.dataset.key || ' ';
+      const onDown = (e) => { e.preventDefault(); actionBtn.classList.add('active'); press(key); };
+      const onUp   = (e) => { e.preventDefault(); actionBtn.classList.remove('active'); release(key); };
+      actionBtn.addEventListener('touchstart', onDown, { passive: false });
+      actionBtn.addEventListener('touchend',   onUp,   { passive: false });
+      actionBtn.addEventListener('touchcancel', onUp,  { passive: false });
+      actionBtn.addEventListener('mousedown',  onDown);
+      actionBtn.addEventListener('mouseup',    onUp);
+      actionBtn.addEventListener('mouseleave', onUp);
+      actionBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+
+    // ===== 조이스틱 (드래그) =====
+    const base = document.getElementById('joystick-base');
+    const knob = document.getElementById('joystick-knob');
+    if (!base || !knob) return;
+
+    const KNOB_MAX = 50;       // 놉이 베이스 중앙에서 최대 이동할 수 있는 거리
+    const DEAD_ZONE = 10;      // 이 거리 이하는 입력 없음
+    const DIR_THRESHOLD = 0.4; // 정규화된 거리(0~1) 기준 — 이 이상이면 그 방향 키 활성
+
+    let touchId = null;
+    let centerX = 0, centerY = 0;
+    let mouseDown = false;
+
+    const releaseAllDirs = () => {
+      release('ArrowUp'); release('ArrowDown');
+      release('ArrowLeft'); release('ArrowRight');
     };
 
-    document.querySelectorAll('.dpad-btn').forEach(bind);
-    const actionBtn = document.getElementById('action-btn');
-    if (actionBtn) bind(actionBtn);
+    const updateDirs = (dx, dy) => {
+      const len = Math.hypot(dx, dy);
+      if (len < DEAD_ZONE) { releaseAllDirs(); return; }
+      const nx = dx / KNOB_MAX, ny = dy / KNOB_MAX;
+      const setDir = (key, on) => {
+        if (on) press(key); else release(key);
+      };
+      setDir('ArrowRight', nx >  DIR_THRESHOLD);
+      setDir('ArrowLeft',  nx < -DIR_THRESHOLD);
+      setDir('ArrowDown',  ny >  DIR_THRESHOLD);
+      setDir('ArrowUp',    ny < -DIR_THRESHOLD);
+    };
+
+    const moveKnob = (dx, dy) => {
+      const len = Math.hypot(dx, dy);
+      let kx = dx, ky = dy;
+      if (len > KNOB_MAX) {
+        kx = dx / len * KNOB_MAX;
+        ky = dy / len * KNOB_MAX;
+      }
+      knob.style.transform = `translate(${kx}px, ${ky}px)`;
+      updateDirs(kx, ky);
+    };
+
+    const onStart = (clientX, clientY) => {
+      const rect = base.getBoundingClientRect();
+      centerX = rect.left + rect.width / 2;
+      centerY = rect.top + rect.height / 2;
+      knob.classList.add('dragging');
+      moveKnob(clientX - centerX, clientY - centerY);
+    };
+
+    const onMove = (clientX, clientY) => {
+      moveKnob(clientX - centerX, clientY - centerY);
+    };
+
+    const onEnd = () => {
+      knob.classList.remove('dragging');
+      knob.style.transform = 'translate(0, 0)';
+      releaseAllDirs();
+      touchId = null;
+      mouseDown = false;
+    };
+
+    // 터치 이벤트 (조이스틱 전용 touchId 추적)
+    base.addEventListener('touchstart', (e) => {
+      if (touchId !== null) return;
+      const t = e.changedTouches[0];
+      touchId = t.identifier;
+      e.preventDefault();
+      onStart(t.clientX, t.clientY);
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (touchId === null) return;
+      for (const t of e.changedTouches) {
+        if (t.identifier === touchId) {
+          e.preventDefault();
+          onMove(t.clientX, t.clientY);
+          return;
+        }
+      }
+    }, { passive: false });
+
+    const handleTouchEnd = (e) => {
+      if (touchId === null) return;
+      for (const t of e.changedTouches) {
+        if (t.identifier === touchId) {
+          e.preventDefault();
+          onEnd();
+          return;
+        }
+      }
+    };
+    document.addEventListener('touchend', handleTouchEnd, { passive: false });
+    document.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    // 마우스 폴백 (데스크톱 테스트용)
+    base.addEventListener('mousedown', (e) => {
+      mouseDown = true;
+      onStart(e.clientX, e.clientY);
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (mouseDown) onMove(e.clientX, e.clientY);
+    });
+    document.addEventListener('mouseup', () => {
+      if (mouseDown) onEnd();
+    });
+    base.addEventListener('contextmenu', (e) => e.preventDefault());
   },
 
   // 모든 키 상태 초기화 (포커스 상실/모달 닫힘 등에서 호출)

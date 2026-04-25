@@ -226,7 +226,7 @@ const Player = {
     const sx = this.x - camera.x;
     const sy = this.y - camera.y;
 
-    // 보트 모드: 배에 탄 모습으로 그림 (Boat 모듈 위임)
+    // 보트 모드: 배에 탄 모습으로 그림 (Boat 모듈 위임 - 배 아래 타이머도 그 안에서)
     if (this.inBoat) {
       Boat.drawWithPerson(ctx, sx, sy, this.dir);
       // 이름표

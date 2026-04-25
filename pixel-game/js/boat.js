@@ -122,6 +122,41 @@ const Boat = {
       ctx.textAlign = 'center';
       ctx.fillText('[SPACE]', sx, sy - 22);
     }
+
+    // 배 아래에 누적 시간 표시 (탑승 중이거나 시간이 이미 사용된 경우만)
+    this._drawTimer(ctx, sx, sy);
+  },
+
+  // 배 아래 누적 시간 라벨
+  _drawTimer(ctx, sx, sy) {
+    if (!Player.inBoat && this.usedTime <= 0) return;
+    const remaining = Math.max(0, Math.ceil(this.remainingTime()));
+    const text = '🚣 ' + remaining + 's';
+    const isWarn = remaining <= 5 && Player.inBoat;
+
+    ctx.font = 'bold 11px sans-serif';
+    const w = ctx.measureText(text).width + 14;
+    const h = 16;
+    const labelY = sy + 28;  // 배 본체 아래
+
+    let alpha = 1;
+    if (isWarn) alpha = 0.7 + Math.sin(Date.now() / 100) * 0.3;
+    ctx.globalAlpha = alpha;
+
+    ctx.fillStyle = isWarn ? 'rgba(239, 68, 68, 0.95)' : 'rgba(58, 166, 224, 0.92)';
+    ctx.fillRect(sx - w / 2, labelY - h / 2, w, h);
+    ctx.strokeStyle = isWarn ? '#991b1b' : '#1d6fa5';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(sx - w / 2, labelY - h / 2, w, h);
+    ctx.lineWidth = 1;
+
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, sx, labelY);
+    ctx.textBaseline = 'alphabetic';
+
+    ctx.globalAlpha = 1;
   },
 
   // 플레이어가 보트 위에 있을 때 (배 + 사람 미니 스프라이트)

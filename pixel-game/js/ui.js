@@ -72,11 +72,6 @@ const UI = {
     document.getElementById('gameover-modal').classList.add('hidden');
     document.getElementById('catch-modal').classList.add('hidden');
     document.getElementById('miss-modal').classList.add('hidden');
-    const boatBox = document.getElementById('boat-timer-box');
-    if (boatBox) {
-      boatBox.classList.add('hidden');
-      boatBox.classList.remove('warning');
-    }
   },
 
   // 어떤 모달이든 열려 있으면 게임 일시정지
@@ -155,21 +150,8 @@ const UI = {
     else box.classList.remove('warning');
   },
 
-  // 배 누적 시간 표시
-  updateBoatTimer() {
-    const box = document.getElementById('boat-timer-box');
-    const valEl = document.getElementById('boat-time-value');
-    // 배에 타고 있거나 시간을 이미 사용한 경우에만 표시
-    if (Player.inBoat || Boat.usedTime > 0) {
-      box.classList.remove('hidden');
-      const remaining = Math.max(0, Math.ceil(Boat.remainingTime()));
-      valEl.textContent = remaining + 's';
-      if (remaining <= 5 && Player.inBoat) box.classList.add('warning');
-      else box.classList.remove('warning');
-    } else {
-      box.classList.add('hidden');
-    }
-  },
+  // 배 시간은 캔버스에서 플레이어 머리 위에 그림 (Player.render 참고). 호환을 위해 빈 메서드.
+  updateBoatTimer() {},
 
   showGameOver(reason) {
     // 종료 사유별 타이틀
