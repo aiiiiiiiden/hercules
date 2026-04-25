@@ -129,16 +129,15 @@ const Input = {
           }
         }
       } else {
-        // 도보 모드: 통과 가능 land OR 보트가 위치한 바다 타일만 클릭 가능
+        // 도보 모드: 통과 가능 land OR 보트가 위치한 바다 타일 OR 4-인접 물 타일(낚시 방향 전환)
         const bc = Math.floor(Boat.x / ts);
         const br = Math.floor(Boat.y / ts);
         const isBoatTile = (tc === bc && tr === br && !Boat.active);
         const isWalkableLand =
           tile === TILE.GRASS || tile === TILE.SAND || tile === TILE.PATH;
-        if (!isWalkableLand && !isBoatTile) {
-          ClickMarker.show(tc, tr, 'fail');
-          return;
-        }
+        const isWater = tile === TILE.WATER;
+        const dxTile = tc - sc, dyTile = tr - sr;
+        const isCardinalAdjacent = (Math.abs(dxTile) + Math.abs(dyTile) === 1);
 
         if (isBoatTile) {
           // 보트 클릭 → 보트 인접 land로 이동 후 자동 탑승
@@ -152,7 +151,15 @@ const Input = {
           } else {
             ClickMarker.show(tc, tr, 'fail');
           }
-        } else {
+        } else if (isWater && isCardinalAdjacent) {
+          // 인접 물 타일 클릭 → 이동 없이 그쪽으로 방향만 전환 (낚시 캐스팅 방향 조정)
+          if (dxTile === 1)       Player.dir = 'right';
+          else if (dxTile === -1) Player.dir = 'left';
+          else if (dyTile === 1)  Player.dir = 'down';
+          else                    Player.dir = 'up';
+          this.tapPath = null;
+          ClickMarker.show(tc, tr, 'ok');
+        } else if (isWalkableLand) {
           // 일반 도보
           const path = Pathfinding.find(sc, sr, tc, tr, 'land');
           if (path && path.length > 1) {
@@ -162,6 +169,8 @@ const Input = {
           } else {
             ClickMarker.show(tc, tr, 'fail');
           }
+        } else {
+          ClickMarker.show(tc, tr, 'fail');
         }
       }
     });
