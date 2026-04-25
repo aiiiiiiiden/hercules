@@ -605,53 +605,47 @@ html, body {
 
 #mobile-controls.hidden { display: none; }
 
-/* 드래그형 조이스틱 (베이스 + 놉) */
-#joystick-base {
+#dpad {
   position: absolute;
-  bottom: calc(40px + env(safe-area-inset-bottom, 0px));
-  left: calc(30px + env(safe-area-inset-left, 0px));
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.35);
-  border: 3px solid rgba(255, 255, 255, 0.45);
+  bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  left: calc(32px + env(safe-area-inset-left, 0px));
+  width: 180px;
+  height: 180px;
+}
+
+.dpad-btn {
+  position: absolute;
   pointer-events: auto;
+  width: 60px;
+  height: 60px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 22px;
+  font-weight: bold;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  border-radius: 14px;
+  cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-
-#joystick-knob {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 60px;
-  height: 60px;
-  margin: -30px 0 0 -30px;
-  background: radial-gradient(circle at 35% 35%, #fff, #ddd);
-  border: 2px solid rgba(0, 0, 0, 0.35);
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
-  transition: transform 0.12s ease-out;
-  transform: translate(0, 0);
-  color: #555;
-  font-size: 24px;
-  font-weight: bold;
+  padding: 0;
+  transition: background 0.05s;
 }
 
-#joystick-knob.dragging {
-  transition: none;  /* 드래그 중엔 추적 지연 없이 */
+.dpad-btn.active,
+.dpad-btn:active {
+  background: rgba(255, 217, 102, 0.85);
+  color: #000;
+  border-color: #fff;
 }
 
-.joystick-icon {
-  display: inline-block;
-  line-height: 1;
-}
+.dpad-up    { top: 0;     left: 60px; }
+.dpad-left  { top: 60px;  left: 0; }
+.dpad-right { top: 60px;  left: 120px; }
+.dpad-down  { top: 120px; left: 60px; }
 
 #action-btn {
   position: absolute;
